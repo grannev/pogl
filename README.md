@@ -5,6 +5,10 @@ Program that can render and manipulate .obj files
 **Requirements: fpc, libglut** 
 
 **INSTALL**  
+**0. Dependencies:**
+- fpc
+- libglut3.12  
+  
 **1. Clone repository**  
 ```Shell
 git clone https://github.com/myaccountry/pogl.git  
