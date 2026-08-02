@@ -112,6 +112,12 @@ begin
 
 	if keyboard^[SDL_SCANCODE_DOWN] <> 0 then
 		RotateModel(model, -rotation, 0, 0);
+
+	if keyboard^[SDL_SCANCODE_PAGEUP] <> 0 then
+		RotateModel(model, 0, 0, rotation);
+
+	if keyboard^[SDL_SCANCODE_PAGEDOWN] <> 0 then
+		RotateModel(model, 0, 0, -rotation);
 end;
 
 procedure PoglHandleEvents;

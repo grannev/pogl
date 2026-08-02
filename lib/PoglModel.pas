@@ -3,6 +3,12 @@ unit PoglModel;
 interface
 
 type
+	TScreenVertex = record
+		x, y: integer;
+	end;
+
+	TScreenVertexArray = array of TScreenVertex;
+
 	TVertex = record
 		x, y, z: single;
 	end;
