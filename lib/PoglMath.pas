@@ -14,7 +14,7 @@ const
 procedure RotateModel(var model: TObjModel; angleX, angleY, angleZ: single);
 procedure RotateVertex(
 	const vertex, center: TVertex;
-	angleX, angleY, angleZ: single;
+	const vsin, vcos: TVertex;
 	var result: TVertex);
 
 function MinSingle(x, y: single): single;
@@ -32,14 +32,27 @@ end;
 procedure RotateModel(var model: TObjModel; angleX, angleY, angleZ: single);
 var
 	i: integer;
+	vsin, vcos: TVertex;
 begin
 	with model do begin
 		InitVertex(angle, angle.x + angleX, angle.y + angleY, angle.z + angleZ);
+
+		InitVertex(vsin,
+			sin(angle.x * DEG_TO_RAD),
+			sin(angle.y * DEG_TO_RAD),
+			sin(angle.z * DEG_TO_RAD)
+		);
+		InitVertex(vcos,
+			cos(angle.x * DEG_TO_RAD),
+			cos(angle.y * DEG_TO_RAD),
+			cos(angle.z * DEG_TO_RAD)
+		);
+		
 		for i := 0 to high(verteces) do begin
 			RotateVertex(
 				verteces[i],
 				center,
-				angle.x, angle.y, angle.z,
+				vsin, vcos,
 				rotatedVerteces[i]
 			);
 		end;
@@ -48,41 +61,33 @@ end;
 
 procedure RotateVertex(
 	const vertex, center: TVertex;
-	angleX, angleY, angleZ: single;
+	const vsin, vcos: TVertex;
 	var result: TVertex);
 var
 	x, y, z, newX, newY, newZ: single;
-	sinX, cosX, sinY, cosY, sinZ, cosZ: single;
 begin
-	sinX := sin(angleX * DEG_TO_RAD);
-	cosX := cos(angleX * DEG_TO_RAD);
-	sinY := sin(angleY * DEG_TO_RAD);
-	cosY := cos(angleY * DEG_TO_RAD);
-	sinZ := sin(angleZ * DEG_TO_RAD);
-	cosZ := cos(angleZ * DEG_TO_RAD);
-
 	x := vertex.x - center.x;
 	y := vertex.y - center.y;
 	z := vertex.z - center.z;
 
 	{ Вращение вокруг X }
 
-	newY := y * cosX - z * sinX;
-	newZ := y * sinX + z * cosX;
+	newY := y * vcos.x - z * vsin.x;
+	newZ := y * vsin.x + z * vcos.x;
 	y := newY;
 	z := newZ;
 
 	{ Вращение вокруг Y }
 
-	newX := x * cosY + z * sinY;
-	newZ := -x * sinY + z * cosY;
+	newX := x * vcos.y + z * vsin.y;
+	newZ := -x * vsin.y + z * vcos.y;
 	x := newX;
 	z := newZ;
 
 	{ Вращение вокруг Z }
 
-	newX := x * cosZ - y * sinZ;
-	newY := x * sinZ + y * cosZ;
+	newX := x * vcos.z - y * vsin.z;
+	newY := x * vsin.z + y * vcos.z;
 	x := newX;
 	y := newY;
 
