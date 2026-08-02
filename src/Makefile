@@ -1,18 +1,17 @@
 PC := fpc
-TARGET := bin/pogl
+TARGET := ../bin/pogl
 SRC := pogl.pas
 
 GCC_LIBDIR := $(shell dirname $$(gcc -print-file-name=crtbeginS.o))
 SDL_UNITS := ../lib/SDL2-for-Pascal/units
 POGL_UNITS := ../lib
-BUILD := bin
 
 static: all
 
-all: clean dir-bin build
+all: dir-bin build
 
 dir-bin:
-	mkdir -p $(BUILD)
+	mkdir -p ../bin
 
 build:
 	$(PC) -g -O2 \
@@ -24,8 +23,3 @@ build:
 		-o$(TARGET) \
 		$(SRC)
 
-run: build
-	./$(BUILD)/$(TARGET)
-
-clean:
-	rm -rf $(BUILD)

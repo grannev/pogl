@@ -2,8 +2,6 @@ unit PoglModel;
 
 interface
 
-uses PoglMath;
-
 type
 	TVertex = record
 		x, y, z: single;
@@ -14,10 +12,17 @@ type
 	TFaceArray = array of TFace;
 
 	TObjModel = record
+		vmax, vmin: TVertex;
+		angle: TVertex;
+		center: TVertex;
+
 		verteces: TVertexArray;
+		rotatedVerteces: TVertexArray;
+
 		faces: TFaceArray;
 	end;
 
+procedure FindMaxMinVerteces(var model: TObjModel);
 procedure InitVertex(var vertex: TVertex; x, y, z: single);
 procedure AddVertex(var verteces: TVertexArray; const vertex: TVertex);
 procedure WriteVertex(const vertex: TVertex);
@@ -27,7 +32,8 @@ implementation
 
 procedure WriteVertex(const vertex: TVertex);
 begin
-	writeln('v(', vertex.x, ' ', vertex.y, ' ', vertex.z, ')');
+	with vertex do
+		writeln('v(', x, ' ', y, ' ', z, ')');
 end;
 
 procedure WriteFace(const face: TFace);
@@ -35,9 +41,36 @@ var
 	i: integer;
 begin
 	write('f(', face[0]);
-	for i := 1 to length(face) do
+	for i := 1 to high(face) do
 		write(' ', face[i]);
 	writeln(')');
+end;
+
+procedure FindMaxMinVerteces(var model: TObjModel);
+var
+	i: integer;
+begin
+	with model do begin
+		InitVertex(vmax, verteces[0].x, verteces[0].y, verteces[0].z);
+		InitVertex(vmin, verteces[0].x, verteces[0].y, verteces[0].z);
+
+		for i := 0 to high(verteces) do begin
+			if vmax.x < verteces[i].x then
+				vmax.x := verteces[i].x;
+			if vmin.x > verteces[i].x then
+				vmin.x := verteces[i].x;
+			
+			if vmax.y < verteces[i].y then
+				vmax.y := verteces[i].y;
+			if vmin.y > verteces[i].y then
+				vmin.y := verteces[i].y;
+			
+			if vmax.z < verteces[i].z then
+				vmax.z := verteces[i].z;
+			if vmin.z > verteces[i].z then
+				vmin.z := verteces[i].z;
+		end;
+	end;
 end;
 
 procedure WriteModel(const model: TObjModel);

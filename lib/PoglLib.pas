@@ -10,54 +10,49 @@ uses
 	PoglArgs,
 	PoglMath,
 	PoglParser,
-	PoglModel;
+	PoglModel,
+	PoglGraphics;
+
+type
+	TKeyboardState = array [0..511] of byte;
+	PKeyboardState = ^TKeyboardState;
 
 const
 	programName = 'Pogl';
-
-type
-	TPixel = longword;
-	TFrameBuffer = array 
-	[1..poglMainWindowSize] of TPixel;
 
 var
 	statusCode: integer;
 	poglMainWindow: psdl_Window;
 	sdlRenderer: psdl_Renderer;
 	screenTexture: psdl_Texture;
-	frameBuffer: TFrameBuffer;
-	globArgs: TPoglArgs;
 	model: TObjModel;
-	i: integer;
+	isRunning: boolean;
 
-procedure PoglInitObjModel(args: TPoglArgs);
+procedure PoglPrepare(const args: TPoglArgs);
 procedure PoglInitWindow;
 procedure PoglMainloop;
 procedure PoglCleanUp;
 
 implementation
 
-procedure PoglClearScreen(pixel: TPixel);
+procedure PoglPrepare(const args: TPoglArgs);
 var
-	i: longint;
+	i: integer;
 begin
-	for i := 1 to poglMainWindowSize do
-		frameBuffer[i] := pixel;
-end;
-
-procedure PoglPutPixel(x, y: integer; pixel: TPixel);
-begin
-	if (x < 0) or (x >= poglMainWindowWidth) or
-	   (y < 0) or (y >= poglMainWindowHeight) then
-		Exit;
-	frameBuffer[y * poglMainWindowWidth + x] := pixel;
-end;
-
-procedure PoglInitObjModel(args: TPoglArgs);
-begin
-	globArgs := args;
+	PoglPrepareGraphics(args);
 	ParseObjFile(globArgs.fileName, model);
-	WriteModel(model);
+	FindMaxMinVerteces(model);
+	with model do begin
+		InitVertex(center,
+			(vmin.x + vmax.x) / 2,
+			(vmin.y + vmax.y) / 2,
+			(vmin.z + vmax.z) / 2);
+		InitVertex(angle, 0.0, 0.0, 0.0);
+	end;
+
+	setlength(model.rotatedVerteces, length(model.verteces));
+	for i := 0 to high(model.verteces) do
+		model.rotatedVerteces[i] := model.verteces[i];
 end;
 
 procedure PoglInitWindow;
@@ -96,52 +91,87 @@ begin
 		PoglCleanUp;
 end;
 
+procedure PoglHandleKeyboard(deltaTime: single);
+const
+	rotationSpeed = 90.0; { градусов в секунду }
+var
+	keyboard: PKeyboardState;
+	rotation: single;
+begin
+	keyboard := PKeyboardState(sdl_GetKeyboardState(nil));
+	rotation := rotationSpeed * deltaTime;
+
+	if keyboard^[SDL_SCANCODE_LEFT] <> 0 then
+		RotateModel(model, 0, -rotation, 0);
+
+	if keyboard^[SDL_SCANCODE_RIGHT] <> 0 then
+		RotateModel(model, 0, rotation, 0);
+
+	if keyboard^[SDL_SCANCODE_UP] <> 0 then
+		RotateModel(model, rotation, 0, 0);
+
+	if keyboard^[SDL_SCANCODE_DOWN] <> 0 then
+		RotateModel(model, -rotation, 0, 0);
+end;
+
+procedure PoglHandleEvents;
+var
+	event: TSDL_Event;
+begin
+	while sdl_PollEvent(@event) <> 0 do begin
+		case event.type_ of
+		SDL_QUITEV:
+			isRunning := false;
+
+		SDL_KEYDOWN:
+			if event.key.keysym.sym = SDLK_ESCAPE then
+				isRunning := false;
+		end;
+	end;
+end;
+
+procedure PoglPresentScreen;
+begin
+	sdl_UpdateTexture(
+		screenTexture,
+		nil,
+		@frameBuffer[1],
+		poglMainWindowWidth * SizeOf(TPixel)
+	);
+	sdl_RenderClear(sdlRenderer);
+	sdl_RenderCopy(sdlRenderer, screenTexture, nil, nil);
+	sdl_RenderPresent(sdlRenderer);
+end;
 
 procedure PoglMainloop;
 var
-	event: TSDL_Event;
-	isRunning: boolean;
+	previousTicks, currentTicks: longword;
+	deltaTime: single;
 begin
 	isRunning := true;
+	previousTicks := sdl_GetTicks;
 
 	while isRunning do begin
-		while sdl_PollEvent(@event) <> 0 do begin
-			case event.type_ of
-			SDL_QUITEV:
-				isRunning := false;
+		currentTicks := sdl_GetTicks;
+		deltaTime := (currentTicks - previousTicks) / 1000.0;
+		previousTicks := currentTicks;
 
-			SDL_KEYDOWN:
-				case event.key.keysym.sym of
-				SDLK_ESCAPE:
-					isRunning := false;
+		if deltaTime > 0.05 then
+			deltaTime := 0.05;
 
-					SDLK_LEFT:
-						writeln('Left');
-
-					SDLK_RIGHT:
-						writeln('Right');
-				end;
-			end;
-		end;
+		PoglHandleEvents;
 
 		if not isRunning then
 			break;
 
+		PoglHandleKeyboard(deltaTime);
+
 		PoglClearScreen(colorBlack);
+		PoglDrawObjModel(model);
 
 		{ Изменение и отрисовка модели }
-
-		sdl_UpdateTexture(
-			screenTexture,
-			nil,
-			@frameBuffer[1],
-			poglMainWindowWidth * SizeOf(TPixel)
-		);
-		sdl_RenderClear(sdlRenderer);
-		sdl_RenderCopy(sdlRenderer, screenTexture, nil, nil);
-		sdl_RenderPresent(sdlRenderer);
-
-		sdl_Delay(16);
+		PoglPresentScreen();
+		sdl_Delay(5);
 	end;
 end;
 
@@ -180,4 +210,3 @@ begin
 end;
 
 end.
-

@@ -1,9 +1,9 @@
 static:
-	fpc -Xm -Xs -B -opogl main.pas
+	cd src && make
 
 clean:
-	rm *.o *.ppu
+	rm -r ./bin
 
-all:
-	make && make clean
+run:
+	./bin/pogl ./obj/cube.obj
 
