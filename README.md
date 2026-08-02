@@ -37,7 +37,7 @@ First argument is a path to OBJ file:
 
 ## Controls
 
-| Клавиши | Действие |
+| Keys | Action |
 |---|---|
 | `Left Arrow` / `Right Arrow` | Turn around Y axis |
 | `Up Arrow` / `Down Arrow` | Turn around X axis |
