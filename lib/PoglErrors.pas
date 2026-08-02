@@ -1,4 +1,4 @@
-unit poglErrors;
+unit PoglErrors;
 
 interface
 
