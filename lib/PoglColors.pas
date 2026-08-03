@@ -42,7 +42,7 @@ function PoglRandomColor: TColor;
 implementation
 
 const
-	randomColors: array [0..19] of TColor = (
+	colors: array [0..19] of TColor = (
 		colorRed,
 		colorGreen,
 		colorBlue,
@@ -67,7 +67,7 @@ const
 
 function PoglRandomColor: TColor;
 begin
-	PoglRandomColor := randomColors[random(length(randomColors))];
+	PoglRandomColor := colors[random(length(colors))];
 end;
 
 initialization
