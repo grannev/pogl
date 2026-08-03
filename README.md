@@ -42,6 +42,8 @@ First argument is a path to OBJ file:
 | `Left Arrow` / `Right Arrow` | Turn around Y axis |
 | `Up Arrow` / `Down Arrow` | Turn around X axis |
 | `Page Up` / `Page Down` | Turn around Z axis |
+| `W` / `A` / `S` / `D` | Move object |
+| `+` / `-` | Scale object |
 | `Escape` | Close application |
 
 You can keep pressed several buttons at the same time.

@@ -70,21 +70,15 @@ begin
 	y := vertex.y - center.y;
 	z := vertex.z - center.z;
 
-	{ Вращение вокруг X }
-
 	newY := y * vcos.x - z * vsin.x;
 	newZ := y * vsin.x + z * vcos.x;
 	y := newY;
 	z := newZ;
 
-	{ Вращение вокруг Y }
-
 	newX := x * vcos.y + z * vsin.y;
 	newZ := -x * vsin.y + z * vcos.y;
 	x := newX;
 	z := newZ;
-
-	{ Вращение вокруг Z }
 
 	newX := x * vcos.z - y * vsin.z;
 	newY := x * vsin.z + y * vcos.z;

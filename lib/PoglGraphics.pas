@@ -5,60 +5,151 @@ interface
 uses PoglArgs, PoglModel, PoglColors, PoglWindowSize, PoglMath;
 
 type
-	TPixel = longword;
 	TFrameBuffer = array 
-	[1..poglMainWindowSize] of TPixel;
+	[1..poglMainWindowSize] of TColor;
+	TZBuffer = array
+	[1..poglMainWindowSize] of single;
+
+const
+	lineDepthBias = 0.0001;
+	screenMinX = -(poglMainWindowWidth div 2);
+	screenMaxX = poglMainWindowWidth - poglMainWindowWidth div 2 - 1;
+	screenMinY = poglMainWindowHeight div 2 - poglMainWindowHeight + 1;
+	screenMaxY = poglMainWindowHeight div 2;
 
 var
 	frameBuffer: TFrameBuffer;
+	zBuffer: TZBuffer;
 	globArgs: TPoglArgs;
 	screenVerteces: TScreenVertexArray;
+	moveX, moveY: single;
 
 procedure PoglPrepareGraphics(const args: TPoglArgs);
-procedure PoglClearScreen(pixel: TPixel);
-procedure PoglPutPixel(x, y: integer; pixel: TPixel);
-procedure PoglDrawObjModel(const model: TObjModel);
+procedure PoglClearBuffers(color: TColor);
+procedure PoglPutPixel(
+	x, y: integer;
+	z: single;
+	color: TColor); inline;
+procedure PoglDrawObjModel(
+	const model: TObjModel;
+	updateScreenVerteces: boolean);
 
 implementation
+
+procedure PoglClearBuffers(color: TColor);
+var
+	i: longint;
+begin
+	for i := 1 to poglMainWindowSize do begin
+		frameBuffer[i] := color;
+		zBuffer[i] := -1.0E30;
+	end;
+end;
 
 procedure PoglPrepareGraphics(const args: TPoglArgs);
 begin
 	globArgs := args;
+	moveX := 0;
+	moveY := 0;
 end;
 
-procedure PoglClearScreen(pixel: TPixel);
-var
-	i: longint;
-begin
-	for i := 1 to poglMainWindowSize do
-		frameBuffer[i] := pixel;
-end;
-
-procedure PoglPutPixel(x, y: integer; pixel: TPixel);
+procedure PoglPutPixel(
+	x, y: integer;
+	z: single;
+	color: TColor); inline;
 var
 	index: longint;
 begin
 	x := poglMainWindowWidth div 2 + x;
 	y := poglMainWindowHeight div 2 - y;
 
-	if (x < 0) or (x >= poglMainWindowWidth) or
-	   (y < 0) or (y >= poglMainWindowHeight) then
+	if  (x < 0) or (x >= poglMainWindowWidth)  or
+		(y < 0) or (y >= poglMainWindowHeight) then
 		exit;
 
 	index := longint(y) * poglMainWindowWidth + x + 1;
-	frameBuffer[index] := pixel;
+
+	if z < zBuffer[index] then
+		exit;
+
+	zBuffer[index] := z;
+	frameBuffer[index] := color;
+end;
+
+function PoglTriangleVisible(
+	const v1, v2, v3: TScreenVertex): boolean;
+var
+	area: int64;
+	minX, maxX, minY, maxY: integer;
+begin
+	area :=
+		(int64(v2.x) - v1.x) * (int64(v3.y) - v1.y) -
+		(int64(v2.y) - v1.y) * (int64(v3.x) - v1.x);
+
+	if area <= 0 then begin
+		PoglTriangleVisible := false;
+		exit;
+	end;
+
+	minX := v1.x;
+	maxX := v1.x;
+	minY := v1.y;
+	maxY := v1.y;
+
+	if v2.x < minX then
+		minX := v2.x;
+	if v3.x < minX then
+		minX := v3.x;
+	if v2.x > maxX then
+		maxX := v2.x;
+	if v3.x > maxX then
+		maxX := v3.x;
+
+	if v2.y < minY then
+		minY := v2.y;
+	if v3.y < minY then
+		minY := v3.y;
+	if v2.y > maxY then
+		maxY := v2.y;
+	if v3.y > maxY then
+		maxY := v3.y;
+
+	PoglTriangleVisible :=
+		(maxX >= screenMinX) and (minX <= screenMaxX) and
+		(maxY >= screenMinY) and (minY <= screenMaxY);
 end;
 
 procedure PoglDrawLine(
-	x0, y0, x1, y1: integer;
-	pixel: TPixel);
+	const v0, v1: TScreenVertex;
+	color: TColor);
 var
 	deltaX, deltaY: integer;
 	stepX, stepY: integer;
 	errorValue, errorDouble: integer;
+	depthSteps: integer;
+	x0, y0, x1, y1: integer;
+	z, zStep: single;
 begin
+	x0 := v0.x;
+	y0 := v0.y;
+	x1 := v1.x;
+	y1 := v1.y;
+	z := v0.z;
+
 	deltaX := abs(x1 - x0);
-	deltaY := -abs(y1 - y0);
+	deltaY := abs(y1 - y0);
+
+	if deltaX > deltaY then
+		depthSteps := deltaX
+	else
+		depthSteps := deltaY;
+
+	if depthSteps = 0 then
+		zStep := 0
+	else
+		zStep := (v1.z - v0.z) / depthSteps;
+
+	deltaY := -deltaY;
 
 	if x0 < x1 then
 		stepX := 1
@@ -73,7 +164,7 @@ begin
 	errorValue := deltaX + deltaY;
 
 	while true do begin
-		PoglPutPixel(x0, y0, pixel);
+		PoglPutPixel(x0, y0, z + lineDepthBias, color);
 
 		if (x0 = x1) and (y0 = y1) then
 			break;
@@ -89,6 +180,164 @@ begin
 			errorValue := errorValue + deltaX;
 			y0 := y0 + stepY;
 		end;
+
+		z := z + zStep;
+	end;
+end;
+
+procedure PoglDrawSpan(
+	y: integer;
+	firstX, firstZ, secondX, secondZ: single;
+	color: TColor);
+var
+	temp: single;
+	z, zStep: single;
+	x, xStart, xEnd: integer;
+	screenX, screenY: integer;
+	index: longint;
+begin
+	if (y < screenMinY) or (y > screenMaxY) then
+		exit;
+
+	if firstX > secondX then begin
+		temp := firstX;
+		firstX := secondX;
+		secondX := temp;
+
+		temp := firstZ;
+		firstZ := secondZ;
+		secondZ := temp;
+	end;
+
+	xStart := round(firstX);
+	xEnd := round(secondX);
+
+	if (xEnd < screenMinX) or (xStart > screenMaxX) then
+		exit;
+
+	if xStart = xEnd then begin
+		zStep := 0;
+		z := (firstZ + secondZ) / 2;
+	end else begin
+		zStep := (secondZ - firstZ) / (xEnd - xStart);
+		z := firstZ;
+	end;
+
+	if xStart < screenMinX then begin
+		z := z + (screenMinX - xStart) * zStep;
+		xStart := screenMinX;
+	end;
+
+	if xEnd > screenMaxX then
+		xEnd := screenMaxX;
+
+	screenX := poglMainWindowWidth div 2 + xStart;
+	screenY := poglMainWindowHeight div 2 - y;
+	index := longint(screenY) * poglMainWindowWidth + screenX + 1;
+
+	for x := xStart to xEnd do begin
+		if z >= zBuffer[index] then begin
+			zBuffer[index] := z;
+			frameBuffer[index] := color;
+		end;
+
+		index := index + 1;
+		z := z + zStep;
+	end;
+end;
+
+procedure PoglDrawTrianglePart(
+	yStart, yEnd: integer;
+	firstX, firstZ, firstXStep, firstZStep: single;
+	secondX, secondZ, secondXStep, secondZStep: single;
+	color: TColor);
+var
+	y, skippedRows: integer;
+begin
+	if (yStart > yEnd) or (yEnd < screenMinY) or
+	(yStart > screenMaxY) then
+		exit;
+
+	if yStart < screenMinY then begin
+		skippedRows := screenMinY - yStart;
+		firstX := firstX + firstXStep * skippedRows;
+		firstZ := firstZ + firstZStep * skippedRows;
+		secondX := secondX + secondXStep * skippedRows;
+		secondZ := secondZ + secondZStep * skippedRows;
+		yStart := screenMinY;
+	end;
+
+	if yEnd > screenMaxY then
+		yEnd := screenMaxY;
+
+	for y := yStart to yEnd do begin
+		PoglDrawSpan(y, firstX, firstZ, secondX, secondZ, color);
+
+		firstX := firstX + firstXStep;
+		firstZ := firstZ + firstZStep;
+		secondX := secondX + secondXStep;
+		secondZ := secondZ + secondZStep;
+	end;
+end;
+
+procedure PoglDrawTriangle(
+	v1, v2, v3: TScreenVertex;
+	const color: TColor);
+var
+	totalHeight, segmentHeight: integer;
+	firstPartEnd: integer;
+	longX, longZ, longXStep, longZStep: single;
+	shortXStep, shortZStep: single;
+begin
+	if not PoglTriangleVisible(v1, v2, v3) then
+		exit;
+
+	if v1.y > v2.y then
+		SwapScreenVertex(v1, v2);
+	if v1.y > v3.y then
+		SwapScreenVertex(v1, v3);
+	if v2.y > v3.y then
+		SwapScreenVertex(v2, v3);
+
+	totalHeight := v3.y - v1.y;
+	if totalHeight = 0 then
+		exit;
+
+	longXStep := (v3.x - v1.x) / totalHeight;
+	longZStep := (v3.z - v1.z) / totalHeight;
+
+	segmentHeight := v2.y - v1.y;
+	if segmentHeight > 0 then begin
+		shortXStep := (v2.x - v1.x) / segmentHeight;
+		shortZStep := (v2.z - v1.z) / segmentHeight;
+		firstPartEnd := v2.y - 1;
+
+		if v2.y = v3.y then
+			firstPartEnd := v2.y;
+
+		PoglDrawTrianglePart(
+			v1.y,
+			firstPartEnd,
+			v1.x, v1.z, longXStep, longZStep,
+			v1.x, v1.z, shortXStep, shortZStep,
+			color
+		);
+	end;
+
+	segmentHeight := v3.y - v2.y;
+	if segmentHeight > 0 then begin
+		shortXStep := (v3.x - v2.x) / segmentHeight;
+		shortZStep := (v3.z - v2.z) / segmentHeight;
+		longX := v1.x + longXStep * (v2.y - v1.y);
+		longZ := v1.z + longZStep * (v2.y - v1.y);
+
+		PoglDrawTrianglePart(
+			v2.y,
+			v3.y,
+			longX, longZ, longXStep, longZStep,
+			v2.x, v2.z, shortXStep, shortZStep,
+			color
+		);
 	end;
 end;
 
@@ -99,31 +348,52 @@ var
 	i, j, next: integer;
 	vertexIndex, nextVertexIndex: integer;
 begin
-	for i := 0 to high(model.faces) do begin
-		if length(model.faces[i]) < 2 then
-			continue;
+	with model do begin
+		for i := 0 to high(faces) do begin
+			if length(faces[i]) <> 3 then
+				continue;
 
-		for j := 0 to high(model.faces[i]) do begin
-			next := j + 1;
-
-			if next > high(model.faces[i]) then
-				next := 0;
-
-			vertexIndex := model.faces[i][j];
-			nextVertexIndex := model.faces[i][next];
-
-			PoglDrawLine(
-				screenVerteces[vertexIndex].x,
-				screenVerteces[vertexIndex].y,
-				screenVerteces[nextVertexIndex].x,
-				screenVerteces[nextVertexIndex].y,
-				colorWhite
+			PoglDrawTriangle(
+				screenVerteces[faces[i][0].vertexIndex],
+				screenVerteces[faces[i][1].vertexIndex],
+				screenVerteces[faces[i][2].vertexIndex],
+				colorGreen
 			);
+		end;
+
+		for i := 0 to high(faces) do begin
+			if length(faces[i]) <> 3 then
+				continue;
+
+			if not PoglTriangleVisible(
+				screenVerteces[faces[i][0].vertexIndex],
+				screenVerteces[faces[i][1].vertexIndex],
+				screenVerteces[faces[i][2].vertexIndex]
+			) then
+				continue;
+
+			for j := 0 to high(model.faces[i]) do begin
+				next := j + 1;
+
+				if next > high(model.faces[i]) then
+					next := 0;
+
+				vertexIndex := model.faces[i][j].vertexIndex;
+				nextVertexIndex := model.faces[i][next].vertexIndex;
+
+				PoglDrawLine(
+					screenVerteces[vertexIndex],
+					screenVerteces[nextVertexIndex],
+					colorLime
+				);
+			end;
 		end;
 	end;
 end;
 
-procedure PoglDrawObjModel(const model: TObjModel);
+procedure PoglDrawObjModel(
+	const model: TObjModel;
+	updateScreenVerteces: boolean);
 var
 	i: integer;
 	scale: single;
@@ -131,22 +401,29 @@ begin
 	if length(model.rotatedVerteces) = 0 then
 		exit;
 
-	if length(screenVerteces) <> length(model.rotatedVerteces) then
+	if length(screenVerteces) <> length(model.rotatedVerteces) then begin
 		setlength(screenVerteces, length(model.rotatedVerteces));
+		updateScreenVerteces := true;
+	end;
 
-	scale := MinSingle(
-		globArgs.width / (model.vmax.x - model.vmin.x),
-		globArgs.height / (model.vmax.y - model.vmin.y)
-	);
-
-	for i := 0 to high(model.rotatedVerteces) do begin
-		screenVerteces[i].x := round(
-			(model.rotatedVerteces[i].x - model.center.x) * scale
+	if updateScreenVerteces then begin
+		scale := MinSingle(
+			globArgs.width / (model.vmax.x - model.vmin.x),
+			globArgs.height / (model.vmax.y - model.vmin.y)
 		);
 
-		screenVerteces[i].y := round(
-			(model.rotatedVerteces[i].y - model.center.y) * scale
-		);
+		for i := 0 to high(model.rotatedVerteces) do begin
+			screenVerteces[i].x := round(
+				(model.rotatedVerteces[i].x - model.center.x) * scale + moveX
+			);
+
+			screenVerteces[i].y := round(
+				(model.rotatedVerteces[i].y - model.center.y) * scale + moveY
+			);
+
+			screenVerteces[i].z :=
+				model.rotatedVerteces[i].z - model.center.z;
+		end;
 	end;
 
 	PoglDrawFaces(model, screenVerteces);

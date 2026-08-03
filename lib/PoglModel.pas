@@ -5,6 +5,7 @@ interface
 type
 	TScreenVertex = record
 		x, y: integer;
+		z: single;
 	end;
 
 	TScreenVertexArray = array of TScreenVertex;
@@ -12,9 +13,21 @@ type
 	TVertex = record
 		x, y, z: single;
 	end;
-	TFace = array of integer;
+
+	TTextureVertex = record
+		u, v, w: single;
+	end;
+
+	TFaceVertex = record
+		vertexIndex: integer;
+		textureIndex: integer;
+		normalIndex: integer;
+	end;
+
+	TFace = array of TFaceVertex;
 
 	TVertexArray = array of TVertex;
+	TTextureVertexArray = array of TTextureVertex;
 	TFaceArray = array of TFace;
 
 	TObjModel = record
@@ -23,18 +36,31 @@ type
 		center: TVertex;
 
 		verteces: TVertexArray;
+		textureVerteces: TTextureVertexArray;
+		normals: TVertexArray;
 		rotatedVerteces: TVertexArray;
 
 		faces: TFaceArray;
 	end;
 
 procedure FindMaxMinVerteces(var model: TObjModel);
-procedure InitVertex(var vertex: TVertex; x, y, z: single);
-procedure AddVertex(var verteces: TVertexArray; const vertex: TVertex);
-procedure WriteVertex(const vertex: TVertex);
 procedure WriteModel(const model: TObjModel);
 
+procedure SwapScreenVertex(var a, b: TScreenVertex);
+
+procedure InitVertex(var vertex: TVertex; x, y, z: single);
+procedure WriteVertex(const vertex: TVertex);
+
 implementation
+
+procedure SwapScreenVertex(var a, b: TScreenVertex);
+var
+	temp: TScreenVertex;
+begin
+	temp := a;
+	a := b;
+	b := temp;
+end;
 
 procedure WriteVertex(const vertex: TVertex);
 begin
@@ -46,9 +72,16 @@ procedure WriteFace(const face: TFace);
 var
 	i: integer;
 begin
-	write('f(', face[0]);
-	for i := 1 to high(face) do
-		write(' ', face[i]);
+	write('f(');
+	for i := 0 to high(face) do begin
+		if i > 0 then
+			write(' ');
+		write(
+			face[i].vertexIndex, '/',
+			face[i].textureIndex, '/',
+			face[i].normalIndex
+		);
+	end;
 	writeln(')');
 end;
 
@@ -96,12 +129,4 @@ begin
 	vertex.z := z;
 end;
 
-procedure AddVertex(var verteces: TVertexArray; const vertex: TVertex);
-begin
-	setlength(verteces, length(verteces) + 1);
-	verteces[high(verteces)] := vertex;
-end;
-
-
 end.
-
