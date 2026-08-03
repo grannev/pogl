@@ -8,47 +8,134 @@ procedure ParseObjFile(fileName: string; var model: TObjModel);
 
 implementation
 
-procedure ParseVertex(line: string; var model: TObjModel);
+procedure ParseVertex(line: string; var vertex: TVertex);
 var
 	unused: char;
-	vertex: TVertex;
 begin
 	readstr(line, unused, vertex.x, vertex.y, vertex.z);
-	AddVertex(model.verteces, vertex);
 end;
 
-procedure ParseFace(line: string; var model: TObjModel);
+procedure ParseTextureVertex(line: string; var vertex: TTextureVertex);
 var
-	i, wordsCount, slashPos, vertexIndex: integer;
+	wordsCount: integer;
+begin
+	wordsCount := wordcount(line, [' ', #9]);
+	vertex.u := 0;
+	vertex.v := 0;
+	vertex.w := 0;
+
+	if wordsCount >= 2 then
+		vertex.u := strtofloat(extractword(2, line, [' ', #9]));
+	if wordsCount >= 3 then
+		vertex.v := strtofloat(extractword(3, line, [' ', #9]));
+	if wordsCount >= 4 then
+		vertex.w := strtofloat(extractword(4, line, [' ', #9]));
+end;
+
+procedure ParseNormal(line: string; var normal: TVertex);
+begin
+	normal.x := strtofloat(extractword(2, line, [' ', #9]));
+	normal.y := strtofloat(extractword(3, line, [' ', #9]));
+	normal.z := strtofloat(extractword(4, line, [' ', #9]));
+end;
+
+function ParseIndex(value: string; elementsCount: integer): integer;
+var
+	index: integer;
+begin
+	if value = '' then begin
+		ParseIndex := -1;
+		exit;
+	end;
+
+	index := strtoint(value);
+	if index > 0 then
+		ParseIndex := index - 1
+	else if index < 0 then
+		ParseIndex := elementsCount + index
+	else
+		ParseIndex := -1;
+end;
+
+procedure ParseFaceVertex(
 	element: string;
-	face: TFace;
+	vertecesCount, textureVertecesCount, normalsCount: integer;
+	var vertex: TFaceVertex);
+var
+	firstSlash, secondSlash: integer;
+	remaining: string;
+begin
+	vertex.vertexIndex := -1;
+	vertex.textureIndex := -1;
+	vertex.normalIndex := -1;
+
+	firstSlash := pos('/', element);
+	if firstSlash = 0 then begin
+		vertex.vertexIndex := ParseIndex(element, vertecesCount);
+		exit;
+	end;
+
+	vertex.vertexIndex := ParseIndex(
+		copy(element, 1, firstSlash - 1),
+		vertecesCount
+	);
+	remaining := copy(element, firstSlash + 1, length(element));
+	secondSlash := pos('/', remaining);
+
+	if secondSlash = 0 then begin
+		vertex.textureIndex := ParseIndex(
+			remaining,
+			textureVertecesCount
+		);
+		exit;
+	end;
+
+	vertex.textureIndex := ParseIndex(
+		copy(remaining, 1, secondSlash - 1),
+		textureVertecesCount
+	);
+	vertex.normalIndex := ParseIndex(
+		copy(remaining, secondSlash + 1, length(remaining)),
+		normalsCount
+	);
+end;
+
+procedure ParseFace(
+	line: string;
+	vertecesCount, textureVertecesCount, normalsCount: integer;
+	var face: TFace);
+var
+	i, wordsCount: integer;
+	element: string;
 begin
 	wordsCount := wordcount(line, [' ', #9]);
 	setlength(face, wordsCount - 1);
 
 	for i := 2 to wordsCount do begin
 		element := extractword(i, line, [' ', #9]);
-		slashPos := pos('/', element);
-		if slashPos = 0 then
-			vertexIndex := strtoint(element)
-		else
-			vertexIndex := strtoint(copy(element, 1, slashPos - 1));
-
-		if vertexIndex > 0 then
-			face[i - 2] := vertexIndex - 1
-		else
-			face[i - 2] := length(model.verteces) + vertexIndex;
+		ParseFaceVertex(
+			element,
+			vertecesCount,
+			textureVertecesCount,
+			normalsCount,
+			face[i - 2]
+		);
 	end;
-
-	setlength(model.faces, length(model.faces) + 1);
-	model.faces[high(model.faces)] := face;
 end;
 
-procedure ParseObjFile(fileName: string; var model: TObjModel);
+procedure CountObjElements(
+	fileName: string;
+	var vertecesCount, textureVertecesCount: integer;
+	var normalsCount, facesCount: integer);
 var
 	objFile: textfile;
 	line: string;
 begin
+	vertecesCount := 0;
+	textureVertecesCount := 0;
+	normalsCount := 0;
+	facesCount := 0;
+
 	assign(objFile, fileName);
 	reset(objFile);
 
@@ -57,9 +144,74 @@ begin
 		line := Trim(line);
 
 		if pos('v ', line) = 1 then
-			ParseVertex(line, model);
-		if pos('f ', line) = 1 then
-			ParseFace(line, model);
+			vertecesCount := vertecesCount + 1
+		else if pos('vt ', line) = 1 then
+			textureVertecesCount := textureVertecesCount + 1
+		else if pos('vn ', line) = 1 then
+			normalsCount := normalsCount + 1
+		else if pos('f ', line) = 1 then
+			facesCount := facesCount + 1;
+	end;
+
+	close(objFile);
+end;
+
+procedure ParseObjFile(fileName: string; var model: TObjModel);
+var
+	objFile: textfile;
+	line: string;
+	vertecesCount, textureVertecesCount: integer;
+	normalsCount, facesCount: integer;
+	vertexIndex, textureVertexIndex: integer;
+	normalIndex, faceIndex: integer;
+begin
+	CountObjElements(
+		fileName,
+		vertecesCount,
+		textureVertecesCount,
+		normalsCount,
+		facesCount
+	);
+
+	setlength(model.verteces, vertecesCount);
+	setlength(model.textureVerteces, textureVertecesCount);
+	setlength(model.normals, normalsCount);
+	setlength(model.faces, facesCount);
+
+	vertexIndex := 0;
+	textureVertexIndex := 0;
+	normalIndex := 0;
+	faceIndex := 0;
+
+	assign(objFile, fileName);
+	reset(objFile);
+
+	while not eof(objFile) do begin
+		readln(objFile, line);
+		line := Trim(line);
+
+		if pos('v ', line) = 1 then begin
+			ParseVertex(line, model.verteces[vertexIndex]);
+			vertexIndex := vertexIndex + 1;
+		end else if pos('vt ', line) = 1 then begin
+			ParseTextureVertex(
+				line,
+				model.textureVerteces[textureVertexIndex]
+			);
+			textureVertexIndex := textureVertexIndex + 1;
+		end else if pos('vn ', line) = 1 then begin
+			ParseNormal(line, model.normals[normalIndex]);
+			normalIndex := normalIndex + 1;
+		end else if pos('f ', line) = 1 then begin
+			ParseFace(
+				line,
+				vertexIndex,
+				textureVertexIndex,
+				normalIndex,
+				model.faces[faceIndex]
+			);
+			faceIndex := faceIndex + 1;
+		end;
 	end;
 
 	close(objFile);

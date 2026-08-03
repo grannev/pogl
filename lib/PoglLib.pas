@@ -27,6 +27,8 @@ var
 	screenTexture: psdl_Texture;
 	model: TObjModel;
 	isRunning: boolean;
+	redrawRequired: boolean;
+	modelChanged: boolean;
 
 procedure PoglPrepare(const args: TPoglArgs);
 procedure PoglInitWindow;
@@ -53,6 +55,9 @@ begin
 	setlength(model.rotatedVerteces, length(model.verteces));
 	for i := 0 to high(model.verteces) do
 		model.rotatedVerteces[i] := model.verteces[i];
+
+	redrawRequired := true;
+	modelChanged := true;
 end;
 
 procedure PoglInitWindow;
@@ -91,7 +96,7 @@ begin
 		PoglCleanUp;
 end;
 
-procedure PoglHandleKeyboard(deltaTime: single);
+function PoglHandleKeyboard(deltaTime: single): boolean;
 const
 	rotationSpeed = 90.0;
 	scaleSpeed = 480;
@@ -99,9 +104,12 @@ const
 var
 	keyboard: PKeyboardState;
 	scaleStep: longint;
+	scaleChange: longint;
+	oldWidth, oldHeight: longint;
 	rotation, rotationX, rotationY, rotationZ: single;
-	moveStep: single;
+	moveStep, moveXChange, moveYChange: single;
 begin
+	PoglHandleKeyboard := false;
 	keyboard := PKeyboardState(sdl_GetKeyboardState(nil));
 	scaleStep := round(scaleSpeed * deltaTime);
 	rotation := rotationSpeed * deltaTime;
@@ -109,6 +117,9 @@ begin
 	rotationX := 0;
 	rotationY := 0;
 	rotationZ := 0;
+	scaleChange := 0;
+	moveXChange := 0;
+	moveYChange := 0;
 
 	if keyboard^[SDL_SCANCODE_LEFT] <> 0 then
 		rotationY := rotationY - rotation;
@@ -129,38 +140,53 @@ begin
 		rotationZ := rotationZ - rotation;
 
 	if (rotationX <> 0) or (rotationY <> 0) or
-	(rotationZ <> 0) then
+	(rotationZ <> 0) then begin
 		RotateModel(model, rotationX, rotationY, rotationZ);
-
-	if (keyboard^[SDL_SCANCODE_EQUALS] <> 0) or
-	(keyboard^[SDL_SCANCODE_KP_PLUS] <> 0) then begin
-		globArgs.width := globArgs.width + scaleStep;
-		globArgs.height := globArgs.height + scaleStep;
+		PoglHandleKeyboard := true;
 	end;
 
+	if (keyboard^[SDL_SCANCODE_EQUALS] <> 0) or
+	(keyboard^[SDL_SCANCODE_KP_PLUS] <> 0) then
+		scaleChange := scaleChange + scaleStep;
+
 	if (keyboard^[SDL_SCANCODE_MINUS] <> 0) or
-	(keyboard^[SDL_SCANCODE_KP_MINUS] <> 0) then begin
-		globArgs.width := globArgs.width - scaleStep;
-		globArgs.height := globArgs.height - scaleStep;
+	(keyboard^[SDL_SCANCODE_KP_MINUS] <> 0) then
+		scaleChange := scaleChange - scaleStep;
+
+	if scaleChange <> 0 then begin
+		oldWidth := globArgs.width;
+		oldHeight := globArgs.height;
+		globArgs.width := globArgs.width + scaleChange;
+		globArgs.height := globArgs.height + scaleChange;
 
 		if globArgs.width < 10 then
 			globArgs.width := 10;
 
 		if globArgs.height < 10 then
 			globArgs.height := 10;
+
+		if (globArgs.width <> oldWidth) or
+		(globArgs.height <> oldHeight) then
+			PoglHandleKeyboard := true;
 	end;
 
 	if keyboard^[SDL_SCANCODE_W] <> 0 then
-		moveY := moveY + moveStep;
+		moveYChange := moveYChange + moveStep;
 
 	if keyboard^[SDL_SCANCODE_A] <> 0 then
-		moveX := moveX - moveStep;
+		moveXChange := moveXChange - moveStep;
 
 	if keyboard^[SDL_SCANCODE_S] <> 0 then
-		moveY := moveY - moveStep;
+		moveYChange := moveYChange - moveStep;
 
 	if keyboard^[SDL_SCANCODE_D] <> 0 then
-		moveX := moveX + moveStep;
+		moveXChange := moveXChange + moveStep;
+
+	if (moveXChange <> 0) or (moveYChange <> 0) then begin
+		moveX := moveX + moveXChange;
+		moveY := moveY + moveYChange;
+		PoglHandleKeyboard := true;
+	end;
 end;
 
 procedure PoglHandleEvents;
@@ -171,6 +197,9 @@ begin
 		case event.type_ of
 		SDL_QUITEV:
 			isRunning := false;
+
+		SDL_WINDOWEVENT:
+			redrawRequired := true;
 
 		SDL_KEYDOWN:
 			if event.key.keysym.sym = SDLK_ESCAPE then
@@ -185,7 +214,7 @@ begin
 		screenTexture,
 		nil,
 		@frameBuffer[1],
-		poglMainWindowWidth * SizeOf(TPixel)
+		poglMainWindowWidth * SizeOf(TColor)
 	);
 	sdl_RenderClear(sdlRenderer);
 	sdl_RenderCopy(sdlRenderer, screenTexture, nil, nil);
@@ -213,13 +242,20 @@ begin
 		if not isRunning then
 			break;
 
-		PoglHandleKeyboard(deltaTime);
+		if PoglHandleKeyboard(deltaTime) then begin
+			redrawRequired := true;
+			modelChanged := true;
+		end;
 
-		PoglClearScreen(colorBlack);
-		PoglDrawObjModel(model);
+		if redrawRequired then begin
+			PoglClearBuffers(colorBlack);
+			PoglDrawObjModel(model, modelChanged);
+			PoglPresentScreen();
 
-		{ Изменение и отрисовка модели }
-		PoglPresentScreen();
+			redrawRequired := false;
+			modelChanged := false;
+		end;
+
 		sdl_Delay(5);
 	end;
 end;
