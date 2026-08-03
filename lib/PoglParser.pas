@@ -60,7 +60,6 @@ begin
 			ParseVertex(line, model);
 		if pos('f ', line) = 1 then
 			ParseFace(line, model);
-
 	end;
 
 	close(objFile);

@@ -93,31 +93,74 @@ end;
 
 procedure PoglHandleKeyboard(deltaTime: single);
 const
-	rotationSpeed = 90.0; { градусов в секунду }
+	rotationSpeed = 90.0;
+	scaleSpeed = 480;
+	moveSpeed = 250.0;
 var
 	keyboard: PKeyboardState;
-	rotation: single;
+	scaleStep: longint;
+	rotation, rotationX, rotationY, rotationZ: single;
+	moveStep: single;
 begin
 	keyboard := PKeyboardState(sdl_GetKeyboardState(nil));
+	scaleStep := round(scaleSpeed * deltaTime);
 	rotation := rotationSpeed * deltaTime;
+	moveStep := moveSpeed * deltaTime;
+	rotationX := 0;
+	rotationY := 0;
+	rotationZ := 0;
 
 	if keyboard^[SDL_SCANCODE_LEFT] <> 0 then
-		RotateModel(model, 0, -rotation, 0);
+		rotationY := rotationY - rotation;
 
 	if keyboard^[SDL_SCANCODE_RIGHT] <> 0 then
-		RotateModel(model, 0, rotation, 0);
+		rotationY := rotationY + rotation;
 
 	if keyboard^[SDL_SCANCODE_UP] <> 0 then
-		RotateModel(model, rotation, 0, 0);
+		rotationX := rotationX + rotation;
 
 	if keyboard^[SDL_SCANCODE_DOWN] <> 0 then
-		RotateModel(model, -rotation, 0, 0);
+		rotationX := rotationX - rotation;
 
 	if keyboard^[SDL_SCANCODE_PAGEUP] <> 0 then
-		RotateModel(model, 0, 0, rotation);
+		rotationZ := rotationZ + rotation;
 
 	if keyboard^[SDL_SCANCODE_PAGEDOWN] <> 0 then
-		RotateModel(model, 0, 0, -rotation);
+		rotationZ := rotationZ - rotation;
+
+	if (rotationX <> 0) or (rotationY <> 0) or
+	(rotationZ <> 0) then
+		RotateModel(model, rotationX, rotationY, rotationZ);
+
+	if (keyboard^[SDL_SCANCODE_EQUALS] <> 0) or
+	(keyboard^[SDL_SCANCODE_KP_PLUS] <> 0) then begin
+		globArgs.width := globArgs.width + scaleStep;
+		globArgs.height := globArgs.height + scaleStep;
+	end;
+
+	if (keyboard^[SDL_SCANCODE_MINUS] <> 0) or
+	(keyboard^[SDL_SCANCODE_KP_MINUS] <> 0) then begin
+		globArgs.width := globArgs.width - scaleStep;
+		globArgs.height := globArgs.height - scaleStep;
+
+		if globArgs.width < 10 then
+			globArgs.width := 10;
+
+		if globArgs.height < 10 then
+			globArgs.height := 10;
+	end;
+
+	if keyboard^[SDL_SCANCODE_W] <> 0 then
+		moveY := moveY + moveStep;
+
+	if keyboard^[SDL_SCANCODE_A] <> 0 then
+		moveX := moveX - moveStep;
+
+	if keyboard^[SDL_SCANCODE_S] <> 0 then
+		moveY := moveY - moveStep;
+
+	if keyboard^[SDL_SCANCODE_D] <> 0 then
+		moveX := moveX + moveStep;
 end;
 
 procedure PoglHandleEvents;

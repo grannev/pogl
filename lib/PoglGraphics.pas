@@ -13,6 +13,7 @@ var
 	frameBuffer: TFrameBuffer;
 	globArgs: TPoglArgs;
 	screenVerteces: TScreenVertexArray;
+	moveX, moveY: single;
 
 procedure PoglPrepareGraphics(const args: TPoglArgs);
 procedure PoglClearScreen(pixel: TPixel);
@@ -24,6 +25,8 @@ implementation
 procedure PoglPrepareGraphics(const args: TPoglArgs);
 begin
 	globArgs := args;
+	moveX := 0;
+	moveY := 0;
 end;
 
 procedure PoglClearScreen(pixel: TPixel);
@@ -141,11 +144,11 @@ begin
 
 	for i := 0 to high(model.rotatedVerteces) do begin
 		screenVerteces[i].x := round(
-			(model.rotatedVerteces[i].x - model.center.x) * scale
+			(model.rotatedVerteces[i].x - model.center.x) * scale + moveX
 		);
 
 		screenVerteces[i].y := round(
-			(model.rotatedVerteces[i].y - model.center.y) * scale
+			(model.rotatedVerteces[i].y - model.center.y) * scale + moveY
 		);
 	end;
 
