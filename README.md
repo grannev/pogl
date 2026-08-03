@@ -1,7 +1,7 @@
 # POGL
 
 POGL - Wavefront OBJ files render, written in Free Pascal using SDL2 lib and
-[SDL2-for-Pascal][https://github.com/PascalGameDevelopment/SDL2-for-Pascal]
+[SDL2-for-Pascal](https://github.com/PascalGameDevelopment/SDL2-for-Pascal)
 repository.
 
 ## Requirements
