@@ -8,6 +8,11 @@ procedure ParseObjFile(fileName: string; var model: TObjModel);
 
 implementation
 
+const
+	spaceChar = ' ';
+	tabChar = #9;
+	wordSeparators = [spaceChar, tabChar];
+
 procedure ParseVertex(line: string; var vertex: TVertex);
 var
 	unused: char;
@@ -15,28 +20,28 @@ begin
 	readstr(line, unused, vertex.x, vertex.y, vertex.z);
 end;
 
-procedure ParseTextureVertex(line: string; var vertex: TTextureVertex);
+procedure ParseTextureVertex(line: string; var vertex: TVertex);
 var
 	wordsCount: integer;
 begin
-	wordsCount := wordcount(line, [' ', #9]);
-	vertex.u := 0;
-	vertex.v := 0;
-	vertex.w := 0;
+	wordsCount := wordcount(line, wordSeparators);
+	vertex.x := 0;
+	vertex.y := 0;
+	vertex.z := 0;
 
 	if wordsCount >= 2 then
-		vertex.u := strtofloat(extractword(2, line, [' ', #9]));
+		vertex.x := strtofloat(extractword(2, line, wordSeparators));
 	if wordsCount >= 3 then
-		vertex.v := strtofloat(extractword(3, line, [' ', #9]));
+		vertex.y := strtofloat(extractword(3, line, wordSeparators));
 	if wordsCount >= 4 then
-		vertex.w := strtofloat(extractword(4, line, [' ', #9]));
+		vertex.z := strtofloat(extractword(4, line, wordSeparators));
 end;
 
 procedure ParseNormal(line: string; var normal: TVertex);
 begin
-	normal.x := strtofloat(extractword(2, line, [' ', #9]));
-	normal.y := strtofloat(extractword(3, line, [' ', #9]));
-	normal.z := strtofloat(extractword(4, line, [' ', #9]));
+	normal.x := strtofloat(extractword(2, line, wordSeparators));
+	normal.y := strtofloat(extractword(3, line, wordSeparators));
+	normal.z := strtofloat(extractword(4, line, wordSeparators));
 end;
 
 function ParseIndex(value: string; elementsCount: integer): integer;
@@ -108,11 +113,11 @@ var
 	i, wordsCount: integer;
 	element: string;
 begin
-	wordsCount := wordcount(line, [' ', #9]);
+	wordsCount := wordcount(line, wordSeparators);
 	setlength(face, wordsCount - 1);
 
 	for i := 2 to wordsCount do begin
-		element := extractword(i, line, [' ', #9]);
+		element := extractword(i, line, wordSeparators);
 		ParseFaceVertex(
 			element,
 			vertecesCount,

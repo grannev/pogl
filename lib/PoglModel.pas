@@ -14,10 +14,6 @@ type
 		x, y, z: single;
 	end;
 
-	TTextureVertex = record
-		u, v, w: single;
-	end;
-
 	TFaceVertex = record
 		vertexIndex: integer;
 		textureIndex: integer;
@@ -27,7 +23,6 @@ type
 	TFace = array of TFaceVertex;
 
 	TVertexArray = array of TVertex;
-	TTextureVertexArray = array of TTextureVertex;
 	TFaceArray = array of TFace;
 
 	TObjModel = record
@@ -36,7 +31,7 @@ type
 		center: TVertex;
 
 		verteces: TVertexArray;
-		textureVerteces: TTextureVertexArray;
+		textureVerteces: TVertexArray;
 		normals: TVertexArray;
 		rotatedVerteces: TVertexArray;
 

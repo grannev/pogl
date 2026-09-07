@@ -3,8 +3,8 @@ unit PoglWindowSize;
 interface
 
 const
-	poglMainWindowWidth = 640;
-	poglMainWindowHeight = 480;
+	poglMainWindowWidth = 1920;
+	poglMainWindowHeight = 1080;
 	poglMainWindowSize = longint(poglMainWindowWidth * poglMainWindowHeight);
 
 implementation

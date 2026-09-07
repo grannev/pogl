@@ -256,7 +256,7 @@ begin
 			modelChanged := false;
 		end;
 
-		sdl_Delay(5);
+		sdl_Delay(1);
 	end;
 end;
 

@@ -11,6 +11,7 @@ const
 	RAD_TO_DEG = 180.0 / pi;
 	DEG_TO_RAD = pi / 180.0;
 
+
 procedure RotateModel(var model: TObjModel; angleX, angleY, angleZ: single);
 procedure RotateVertex(
 	const vertex, center: TVertex;

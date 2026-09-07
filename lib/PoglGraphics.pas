@@ -2,7 +2,7 @@ unit PoglGraphics;
 
 interface
 
-uses PoglArgs, PoglModel, PoglColors, PoglWindowSize, PoglMath;
+uses sdl2, PoglArgs, PoglModel, PoglColors, PoglWindowSize, PoglMath;
 
 type
 	TFrameBuffer = array 
@@ -76,8 +76,8 @@ begin
 	frameBuffer[index] := color;
 end;
 
-function PoglTriangleVisible(
-	const v1, v2, v3: TScreenVertex): boolean;
+function PoglTriangleVisible(const v1, v2, v3: TScreenVertex): boolean;
+{ back face culling optimization }
 var
 	area: int64;
 	minX, maxX, minY, maxY: integer;
@@ -85,11 +85,16 @@ begin
 	area :=
 		(int64(v2.x) - v1.x) * (int64(v3.y) - v1.y) -
 		(int64(v2.y) - v1.y) * (int64(v3.x) - v1.x);
+	{ (area = 0) => degenerate triangle }
+	{ (area < 0) => back face of triangle }
+	{ (area > 0) => front face of triangle - our target :) }
 
 	if area <= 0 then begin
 		PoglTriangleVisible := false;
 		exit;
 	end;
+
+	{ checking if triangle is out of window borders }
 
 	minX := v1.x;
 	maxX := v1.x;
@@ -197,7 +202,7 @@ var
 	index: longint;
 begin
 	if (y < screenMinY) or (y > screenMaxY) then
-		exit;
+		exit; { TODO: check if this necessary }
 
 	if firstX > secondX then begin
 		temp := firstX;
@@ -280,9 +285,8 @@ begin
 	end;
 end;
 
-procedure PoglDrawTriangle(
-	v1, v2, v3: TScreenVertex;
-	const color: TColor);
+procedure PoglDrawTriangle(v1, v2, v3: TScreenVertex; const color: TColor);
+{ Using scanline rendering algorithm }
 var
 	totalHeight, segmentHeight: integer;
 	firstPartEnd: integer;
@@ -303,11 +307,13 @@ begin
 	if totalHeight = 0 then
 		exit;
 
+	{ Making interpolation of x by y for the longest edge }
 	longXStep := (v3.x - v1.x) / totalHeight;
 	longZStep := (v3.z - v1.z) / totalHeight;
 
 	segmentHeight := v2.y - v1.y;
 	if segmentHeight > 0 then begin
+		{ Making interpolation of x by y for one of shortened edge }
 		shortXStep := (v2.x - v1.x) / segmentHeight;
 		shortZStep := (v2.z - v1.z) / segmentHeight;
 		firstPartEnd := v2.y - 1;
@@ -326,8 +332,10 @@ begin
 
 	segmentHeight := v3.y - v2.y;
 	if segmentHeight > 0 then begin
+		{ Making interpolation of x by y for one of shortened edge }
 		shortXStep := (v3.x - v2.x) / segmentHeight;
 		shortZStep := (v3.z - v2.z) / segmentHeight;
+		
 		longX := v1.x + longXStep * (v2.y - v1.y);
 		longZ := v1.z + longZStep * (v2.y - v1.y);
 
