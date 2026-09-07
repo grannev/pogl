@@ -11,7 +11,35 @@ implementation
 const
 	spaceChar = ' ';
 	tabChar = #9;
+	continuationChar = '\';
 	wordSeparators = [spaceChar, tabChar];
+
+function ReadObjLine(var objFile: textfile): string;
+{ Reads one logical line, joining the physical ones that are }
+{ split with a trailing backslash }
+var
+	logicalLine, line: string;
+	continued: boolean;
+begin
+	logicalLine := '';
+
+	repeat
+		readln(objFile, line);
+		line := Trim(line);
+
+		continued := (line <> '') and
+			(line[length(line)] = continuationChar);
+
+		if continued then begin
+			setlength(line, length(line) - 1);
+			line := Trim(line);
+		end;
+
+		logicalLine := logicalLine + line + spaceChar;
+	until (not continued) or eof(objFile);
+
+	ReadObjLine := Trim(logicalLine);
+end;
 
 procedure ParseVertex(line: string; var vertex: TVertex);
 var
@@ -22,7 +50,7 @@ end;
 
 procedure ParseTextureVertex(line: string; var vertex: TVertex);
 var
-	wordsCount: integer;
+	wordsCount: longint;
 begin
 	wordsCount := wordcount(line, wordSeparators);
 	vertex.x := 0;
@@ -44,9 +72,9 @@ begin
 	normal.z := strtofloat(extractword(4, line, wordSeparators));
 end;
 
-function ParseIndex(value: string; elementsCount: integer): integer;
+function ParseIndex(value: string; elementsCount: longint): longint;
 var
-	index: integer;
+	index: longint;
 begin
 	if value = '' then begin
 		ParseIndex := -1;
@@ -64,10 +92,10 @@ end;
 
 procedure ParseFaceVertex(
 	element: string;
-	vertecesCount, textureVertecesCount, normalsCount: integer;
+	vertecesCount, textureVertecesCount, normalsCount: longint;
 	var vertex: TFaceVertex);
 var
-	firstSlash, secondSlash: integer;
+	firstSlash, secondSlash: longint;
 	remaining: string;
 begin
 	vertex.vertexIndex := -1;
@@ -107,10 +135,10 @@ end;
 
 procedure ParseFace(
 	line: string;
-	vertecesCount, textureVertecesCount, normalsCount: integer;
+	vertecesCount, textureVertecesCount, normalsCount: longint;
 	var face: TFace);
 var
-	i, wordsCount: integer;
+	i, wordsCount: longint;
 	element: string;
 begin
 	wordsCount := wordcount(line, wordSeparators);
@@ -130,8 +158,8 @@ end;
 
 procedure CountObjElements(
 	fileName: string;
-	var vertecesCount, textureVertecesCount: integer;
-	var normalsCount, facesCount: integer);
+	var vertecesCount, textureVertecesCount: longint;
+	var normalsCount, facesCount: longint);
 var
 	objFile: textfile;
 	line: string;
@@ -145,8 +173,7 @@ begin
 	reset(objFile);
 
 	while not eof(objFile) do begin
-		readln(objFile, line);
-		line := Trim(line);
+		line := ReadObjLine(objFile);
 
 		if pos('v ', line) = 1 then
 			vertecesCount := vertecesCount + 1
@@ -165,10 +192,10 @@ procedure ParseObjFile(fileName: string; var model: TObjModel);
 var
 	objFile: textfile;
 	line: string;
-	vertecesCount, textureVertecesCount: integer;
-	normalsCount, facesCount: integer;
-	vertexIndex, textureVertexIndex: integer;
-	normalIndex, faceIndex: integer;
+	vertecesCount, textureVertecesCount: longint;
+	normalsCount, facesCount: longint;
+	vertexIndex, textureVertexIndex: longint;
+	normalIndex, faceIndex: longint;
 begin
 	CountObjElements(
 		fileName,
@@ -192,8 +219,7 @@ begin
 	reset(objFile);
 
 	while not eof(objFile) do begin
-		readln(objFile, line);
-		line := Trim(line);
+		line := ReadObjLine(objFile);
 
 		if pos('v ', line) = 1 then begin
 			ParseVertex(line, model.verteces[vertexIndex]);

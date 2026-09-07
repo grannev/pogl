@@ -4,7 +4,7 @@ interface
 
 type
 	TScreenVertex = record
-		x, y: integer;
+		x, y: longint;
 		z: single;
 	end;
 
@@ -15,9 +15,9 @@ type
 	end;
 
 	TFaceVertex = record
-		vertexIndex: integer;
-		textureIndex: integer;
-		normalIndex: integer;
+		vertexIndex: longint;
+		textureIndex: longint;
+		normalIndex: longint;
 	end;
 
 	TFace = array of TFaceVertex;
@@ -65,7 +65,7 @@ end;
 
 procedure WriteFace(const face: TFace);
 var
-	i: integer;
+	i: longint;
 begin
 	write('f(');
 	for i := 0 to high(face) do begin
@@ -82,7 +82,7 @@ end;
 
 procedure FindMaxMinVerteces(var model: TObjModel);
 var
-	i: integer;
+	i: longint;
 begin
 	with model do begin
 		InitVertex(vmax, verteces[0].x, verteces[0].y, verteces[0].z);
@@ -109,7 +109,7 @@ end;
 
 procedure WriteModel(const model: TObjModel);
 var
-	i: integer;
+	i: longint;
 begin
 	for i := 0 to high(model.verteces) do
 		WriteVertex(model.verteces[i]);

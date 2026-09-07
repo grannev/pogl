@@ -32,7 +32,7 @@ end;
 
 procedure RotateModel(var model: TObjModel; angleX, angleY, angleZ: single);
 var
-	i: integer;
+	i: longint;
 	vsin, vcos: TVertex;
 begin
 	with model do begin

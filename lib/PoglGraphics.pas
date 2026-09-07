@@ -27,7 +27,7 @@ var
 procedure PoglPrepareGraphics(const args: TPoglArgs);
 procedure PoglClearBuffers(color: TColor);
 procedure PoglPutPixel(
-	x, y: integer;
+	x, y: longint;
 	z: single;
 	color: TColor); inline;
 procedure PoglDrawObjModel(
@@ -54,7 +54,7 @@ begin
 end;
 
 procedure PoglPutPixel(
-	x, y: integer;
+	x, y: longint;
 	z: single;
 	color: TColor); inline;
 var
@@ -80,7 +80,7 @@ function PoglTriangleVisible(const v1, v2, v3: TScreenVertex): boolean;
 { back face culling optimization }
 var
 	area: int64;
-	minX, maxX, minY, maxY: integer;
+	minX, maxX, minY, maxY: longint;
 begin
 	area :=
 		(int64(v2.x) - v1.x) * (int64(v3.y) - v1.y) -
@@ -128,11 +128,11 @@ procedure PoglDrawLine(
 	const v0, v1: TScreenVertex;
 	color: TColor);
 var
-	deltaX, deltaY: integer;
-	stepX, stepY: integer;
-	errorValue, errorDouble: integer;
-	depthSteps: integer;
-	x0, y0, x1, y1: integer;
+	deltaX, deltaY: longint;
+	stepX, stepY: longint;
+	errorValue, errorDouble: longint;
+	depthSteps: longint;
+	x0, y0, x1, y1: longint;
 	z, zStep: single;
 begin
 	x0 := v0.x;
@@ -191,14 +191,14 @@ begin
 end;
 
 procedure PoglDrawSpan(
-	y: integer;
+	y: longint;
 	firstX, firstZ, secondX, secondZ: single;
 	color: TColor);
 var
 	temp: single;
 	z, zStep: single;
-	x, xStart, xEnd: integer;
-	screenX, screenY: integer;
+	x, xStart, xEnd: longint;
+	screenX, screenY: longint;
 	index: longint;
 begin
 	if (y < screenMinY) or (y > screenMaxY) then
@@ -252,12 +252,12 @@ begin
 end;
 
 procedure PoglDrawTrianglePart(
-	yStart, yEnd: integer;
+	yStart, yEnd: longint;
 	firstX, firstZ, firstXStep, firstZStep: single;
 	secondX, secondZ, secondXStep, secondZStep: single;
 	color: TColor);
 var
-	y, skippedRows: integer;
+	y, skippedRows: longint;
 begin
 	if (yStart > yEnd) or (yEnd < screenMinY) or
 	(yStart > screenMaxY) then
@@ -288,8 +288,8 @@ end;
 procedure PoglDrawTriangle(v1, v2, v3: TScreenVertex; const color: TColor);
 { Using scanline rendering algorithm }
 var
-	totalHeight, segmentHeight: integer;
-	firstPartEnd: integer;
+	totalHeight, segmentHeight: longint;
+	firstPartEnd: longint;
 	longX, longZ, longXStep, longZStep: single;
 	shortXStep, shortZStep: single;
 begin
@@ -349,45 +349,73 @@ begin
 	end;
 end;
 
+function PoglFaceVisible(
+	const face: TFace;
+	const screenVerteces: TScreenVertexArray): boolean;
+{ A polygon is visible when at least one triangle of its fan is }
+var
+	i: longint;
+begin
+	PoglFaceVisible := true;
+
+	for i := 2 to high(face) do
+		if PoglTriangleVisible(
+			screenVerteces[face[0].vertexIndex],
+			screenVerteces[face[i - 1].vertexIndex],
+			screenVerteces[face[i].vertexIndex]
+		) then
+			exit;
+
+	PoglFaceVisible := false;
+end;
+
+procedure PoglFillFace(
+	const face: TFace;
+	const screenVerteces: TScreenVertexArray;
+	const color: TColor);
+{ Polygons with more than three verteces are split into a triangle fan }
+var
+	i: longint;
+begin
+	for i := 2 to high(face) do
+		PoglDrawTriangle(
+			screenVerteces[face[0].vertexIndex],
+			screenVerteces[face[i - 1].vertexIndex],
+			screenVerteces[face[i].vertexIndex],
+			color
+		);
+end;
+
 procedure PoglDrawFaces(
 	const model: TObjModel;
 	const screenVerteces: TScreenVertexArray);
 var
-	i, j, next: integer;
-	vertexIndex, nextVertexIndex: integer;
+	i, j, next: longint;
+	vertexIndex, nextVertexIndex: longint;
 begin
 	with model do begin
 		for i := 0 to high(faces) do begin
-			if length(faces[i]) <> 3 then
+			if length(faces[i]) < 3 then
 				continue;
 
-			PoglDrawTriangle(
-				screenVerteces[faces[i][0].vertexIndex],
-				screenVerteces[faces[i][1].vertexIndex],
-				screenVerteces[faces[i][2].vertexIndex],
-				colorGreen
-			);
+			PoglFillFace(faces[i], screenVerteces, colorGreen);
 		end;
 
 		for i := 0 to high(faces) do begin
-			if length(faces[i]) <> 3 then
+			if length(faces[i]) < 3 then
 				continue;
 
-			if not PoglTriangleVisible(
-				screenVerteces[faces[i][0].vertexIndex],
-				screenVerteces[faces[i][1].vertexIndex],
-				screenVerteces[faces[i][2].vertexIndex]
-			) then
+			if not PoglFaceVisible(faces[i], screenVerteces) then
 				continue;
 
-			for j := 0 to high(model.faces[i]) do begin
+			for j := 0 to high(faces[i]) do begin
 				next := j + 1;
 
-				if next > high(model.faces[i]) then
+				if next > high(faces[i]) then
 					next := 0;
 
-				vertexIndex := model.faces[i][j].vertexIndex;
-				nextVertexIndex := model.faces[i][next].vertexIndex;
+				vertexIndex := faces[i][j].vertexIndex;
+				nextVertexIndex := faces[i][next].vertexIndex;
 
 				PoglDrawLine(
 					screenVerteces[vertexIndex],
@@ -403,7 +431,7 @@ procedure PoglDrawObjModel(
 	const model: TObjModel;
 	updateScreenVerteces: boolean);
 var
-	i: integer;
+	i: longint;
 	scale: single;
 begin
 	if length(model.rotatedVerteces) = 0 then

@@ -39,7 +39,7 @@ implementation
 
 procedure PoglPrepare(const args: TPoglArgs);
 var
-	i: integer;
+	i: longint;
 begin
 	PoglPrepareGraphics(args);
 	ParseObjFile(globArgs.fileName, model);
